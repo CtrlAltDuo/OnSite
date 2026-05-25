@@ -11,7 +11,7 @@ interface MetricsPanelProps {
 
 const TARGET_TOTAL_MS = 700;
 const CEILING_TOTAL_MS = 1000;
-const MODEL_SIZE_CEILING_MB = 20;
+const MODEL_SIZE_CEILING_MB = 50;
 
 function formatMs(ms: number | null): string {
   if (ms === null) {

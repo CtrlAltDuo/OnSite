@@ -1,38 +1,32 @@
-import { useCallback } from 'react';
-declare const global: any;
-import { runOnJS } from 'react-native-reanimated';
+import { useCallback, useEffect } from 'react';
 import { Frame } from 'react-native-vision-camera';
 import { FaceSignals } from '../onsite/coreTypes';
-import { detectFacesFromMLKit } from '../detection/faceDetector';
-import { RawDetectedFace } from '../detection/types';
 
-type FaceDetectionCallback = (faces: FaceSignals[]) => void;
+export function useOnSiteFrameProcessor(onFacesDetected: (faces: FaceSignals[]) => void) {
+  useEffect(() => {
+    // For the hackathon MVP, we simulate a face in the center of the camera view
+    // so the verification button is enabled immediately and extracts the center crop.
+    const interval = setInterval(() => {
+      onFacesDetected([
+        {
+          boundingBox: { x: 200, y: 300, width: 400, height: 400 },
+          landmarks: {
+            leftEye: { x: 280, y: 400 },
+            rightEye: { x: 520, y: 400 },
+            noseBase: { x: 400, y: 500 },
+          },
+          pitch: 0,
+          yaw: 0,
+          roll: 0,
+        },
+      ]);
+    }, 500);
 
-export function useOnSiteFrameProcessor(onFacesDetected: FaceDetectionCallback) {
-  const handleDetectedFaces = useCallback(
-    (rawFaces: RawDetectedFace[]) => {
-      const signals = detectFacesFromMLKit(rawFaces);
-      onFacesDetected(signals);
-    },
-    [onFacesDetected],
-  );
+    return () => clearInterval(interval);
+  }, [onFacesDetected]);
 
-  const frameProcessor = useCallback(
-    (frame: Frame) => {
-      'worklet';
-      try {
-        const scanFaces = (global as any).__scanFaces;
-        if (scanFaces) {
-          const rawFaces = scanFaces(frame) as RawDetectedFace[];
-          if (rawFaces && rawFaces.length > 0) {
-            runOnJS(handleDetectedFaces)(rawFaces);
-          }
-        }
-      } catch (_error) {
-      }
-    },
-    [handleDetectedFaces],
-  );
-
-  return frameProcessor;
+  return useCallback((_frame: Frame) => {
+    'worklet';
+  }, []);
 }
+

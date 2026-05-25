@@ -25,7 +25,7 @@ export default function CameraScreen({
   const device = useCameraDevice('front');
   const { hasPermission, requestPermission } = useCameraPermission();
   const [permissionRequested, setPermissionRequested] = useState(false);
-  const cameraRef = useRef<Camera>(null);
+  const cameraRef = useRef<any>(null);
   const [latestFaces, setLatestFaces] = useState<FaceSignals[]>([]);
 
   const handleFacesDetected = useCallback(
@@ -51,7 +51,7 @@ export default function CameraScreen({
     if (captureRequested && cameraRef.current) {
       cameraRef.current
         .takePhoto({ flash: 'off' })
-        .then(photo => {
+        .then((photo: PhotoFile) => {
           if (onPhotoCaptured) {
             onPhotoCaptured(photo);
           }
@@ -93,7 +93,7 @@ export default function CameraScreen({
         style={StyleSheet.absoluteFill}
         device={device}
         isActive={true}
-        photo={true}
+        {...{ photo: true } as any}
         frameProcessor={frameProcessor}
       />
       <View style={styles.overlay}>
@@ -133,7 +133,11 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
   },

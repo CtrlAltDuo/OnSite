@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+declare const global: any;
 import { runOnJS } from 'react-native-reanimated';
 import { Frame } from 'react-native-vision-camera';
 import { FaceSignals } from '../onsite/coreTypes';

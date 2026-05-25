@@ -24,20 +24,20 @@ export async function getOrCreateEncryptionKey(): Promise<string> {
 
   const newKey = generateRandomKeyHex(32);
 
-  const accessControlOptions: Keychain.Options = {
+  const options: any = {
     service: ONSITE_KEY_SERVICE,
     accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
   };
 
   if (Platform.OS === 'android') {
-    accessControlOptions.securityLevel =
+    options.securityLevel =
       Keychain.SECURITY_LEVEL.SECURE_HARDWARE;
   }
 
   await Keychain.setGenericPassword(
     ONSITE_KEY_SERVICE,
     newKey,
-    accessControlOptions,
+    options,
   );
 
   return newKey;

@@ -26,11 +26,11 @@ const testConfig: SyncClientConfig = {
 
 describe('syncClient', () => {
   beforeEach(() => {
-    (global as any).fetch = undefined;
+    (globalThis as any).fetch = undefined;
   });
 
   it('returns success=false and no statusCode when fetch throws (network error)', async () => {
-    (global as any).fetch = jest.fn().mockRejectedValue(new Error('Network unreachable'));
+    (globalThis as any).fetch = jest.fn().mockRejectedValue(new Error('Network unreachable'));
     const result = await uploadRecord(makeSignedRecord('r1'), testConfig);
     expect(result.success).toBe(false);
     expect(result.statusCode).toBeNull();
@@ -38,7 +38,7 @@ describe('syncClient', () => {
   });
 
   it('returns success=true for a 200 response', async () => {
-    (global as any).fetch = jest.fn().mockResolvedValue({ status: 200, ok: true });
+    (globalThis as any).fetch = jest.fn().mockResolvedValue({ status: 200, ok: true });
     const result = await uploadRecord(makeSignedRecord('r1'), testConfig);
     expect(result.success).toBe(true);
     expect(result.statusCode).toBe(200);
@@ -46,14 +46,14 @@ describe('syncClient', () => {
   });
 
   it('returns success=false for a 409 response', async () => {
-    (global as any).fetch = jest.fn().mockResolvedValue({ status: 409, ok: false });
+    (globalThis as any).fetch = jest.fn().mockResolvedValue({ status: 409, ok: false });
     const result = await uploadRecord(makeSignedRecord('r1'), testConfig);
     expect(result.success).toBe(false);
     expect(result.statusCode).toBe(409);
   });
 
   it('returns success=false for a 500 response', async () => {
-    (global as any).fetch = jest.fn().mockResolvedValue({ status: 500, ok: false });
+    (globalThis as any).fetch = jest.fn().mockResolvedValue({ status: 500, ok: false });
     const result = await uploadRecord(makeSignedRecord('r1'), testConfig);
     expect(result.success).toBe(false);
     expect(result.statusCode).toBe(500);
@@ -61,7 +61,7 @@ describe('syncClient', () => {
 
   it('includes the record id in the PUT URL', async () => {
     let capturedUrl = '';
-    (global as any).fetch = jest.fn().mockImplementation(async (url: string) => {
+    (globalThis as any).fetch = jest.fn().mockImplementation(async (url: string) => {
       capturedUrl = url;
       return { status: 200, ok: true };
     });
@@ -71,7 +71,7 @@ describe('syncClient', () => {
 
   it('sets the Idempotency-Key header to the record id', async () => {
     let capturedHeaders: Record<string, string> = {};
-    (global as any).fetch = jest.fn().mockImplementation(async (_url: string, init: any) => {
+    (globalThis as any).fetch = jest.fn().mockImplementation(async (_url: string, init: any) => {
       capturedHeaders = init?.headers ?? {};
       return { status: 200, ok: true };
     });

@@ -1,57 +1,28 @@
 # OnSite
 
-Offline facial recognition and liveness detection for field-worker attendance in zero-network zones. On-device, cross-platform, spoof-resistant.
+Offline facial recognition and two-layer liveness detection for field-worker attendance in zero-network zones. On-device, cross-platform, spoof-resistant.
 
 ## Overview
 
-OnSite is an offline, on-device facial recognition module for React Native. It verifies that a real, live field worker is physically present at a remote, zero-network location, then queues a tamper-evident record to sync when connectivity returns.
+OnSite verifies that a real, live field worker is physically present at a remote, zero-network location, then queues a tamper-evident signed record to sync when connectivity returns. Enrolment, verification, passive liveness, and active challenge all run offline. The network is used only by the background sync task.
 
 Target platforms: Android 8.0+ and iOS 12+. Mid-range hardware (3 GB RAM, no GPU).
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────┐
-│                   OnSiteCore API                 │
-│  detectFaces · deriveEmbedding · enrolWorker     │
-│  verifyAgainstEnrolled · hasEnrolledTemplate     │
-├──────────┬──────────┬──────────┬────────────────┤
-│  Camera  │Detection │Recognition│   Storage     │
-│  Pipeline│(ML Kit)  │(ONNX SFace)│ (Encrypted)  │
-└──────────┴──────────┴──────────┴────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                    authenticateOnSite flow                    │
+│  1. detectFaces   2. passiveLiveness   3. activeChallenge     │
+│  4. deriveEmbedding   5. verifyAgainstEnrolled               │
+│  6. sign + enqueue record                                    │
+├─────────────┬────────────┬───────────────┬───────────────────┤
+│  OnSiteCore │  Liveness  │    Record     │      Sync         │
+│  (Doc 1)    │  (Doc 2)   │  (Doc 2)      │  (Doc 2)          │
+└─────────────┴────────────┴───────────────┴───────────────────┘
 ```
 
-## Public API Surface
-
-### Types
-
-```typescript
-type FaceSignals = {
-  boundingBox: Rect;
-  landmarks: Landmarks;
-  leftEyeOpenProbability: number;
-  rightEyeOpenProbability: number;
-  headYaw: number;
-  headPitch: number;
-  headRoll: number;
-};
-
-type DetectedFace = {
-  signals: FaceSignals;
-  alignedCrop: number[];
-  cropWidth: number;
-  cropHeight: number;
-};
-
-type MatchResult = {
-  matched: boolean;
-  similarity: number;
-  threshold: number;
-  workerId: string | null;
-};
-```
-
-### OnSiteCore Interface
+## Public API Surface — OnSiteCore (Document 1)
 
 ```typescript
 interface OnSiteCore {
@@ -63,69 +34,140 @@ interface OnSiteCore {
 }
 ```
 
-### Usage
+## Liveness — Two Layers (Document 2)
 
-```typescript
-import { OnSiteCore } from './src/onsite/OnSiteCore';
+### Layer A — Passive (silent)
 
-const enrolled = await OnSiteCore.hasEnrolledTemplate('worker-001');
+MiniFASNet (Apache-2.0, ~1.7 MB int8) inspects the surface of an 80×80 crop taken at 2.7× margin around the face box. Detects print and replay spoofs from texture and backlight artefacts. Returns `livenessScore = 1 − (p_print + p_replay)`. Threshold is configurable.
 
-await OnSiteCore.enrolWorker('worker-001', alignedPixels);
+### Layer B — Active (challenge-response)
 
-const result = await OnSiteCore.verifyAgainstEnrolled(alignedPixels);
-if (result.matched) {
-  console.log(`Verified: ${result.workerId} (${result.similarity})`);
-}
-```
+Randomised blink + head-turn sequence driven by the foundation's `FaceSignals`. A fixed sequence is replayable; random order + a timeout defeats pre-recorded attacks. Step count, timeout, and thresholds are all configurable.
 
 ## Project Structure
 
 ```
 src/
-  camera/
-    CameraScreen.tsx          Front-camera preview with frame processor
-    useFrameProcessor.ts      ML Kit face detection on camera frames
-  detection/
-    faceDetector.ts           ML Kit wrapper returning typed FaceSignals
-    types.ts                  DetectedFace, Landmarks, FaceSignals, RawDetectedFace
-  recognition/
-    alignFace.ts              5-point similarity warp to 112×112 aligned crop
-    embeddingModel.ts         ONNX Runtime inference producing 512-d embedding
-    matcher.ts                Cosine similarity and match threshold logic
-  enrolment/
-    enrolFace.ts              Capture → embedding → encrypted store
-    enrolmentStore.ts         Read/write encrypted templates
-  storage/
-    secureKey.ts              Platform keystore/keychain key management
-    encryptedStore.ts         Encrypt/decrypt templates at rest
-  verification/
-    verifyIdentity.ts         Live capture → embedding → match result
-  onsite/
-    OnSiteCore.ts             Public API surface
-    coreTypes.ts              Shared types and constants
+  liveness/
+    passiveLiveness.ts         MiniFASNet ONNX wrapper → livenessScore
+    passiveCrop.ts             80×80, 2.7×-margin crop
+    activeChallenge.ts         randomised blink/turn sequence + timeout
+    challengeTypes.ts          ChallengeStep, ChallengeResult, LivenessConfig
+    livenessGate.ts            orchestrates passive then active
+  record/
+    verificationRecord.ts      build the record object
+    recordSigner.ts            sign with device key (tamper-evident)
+    recordQueue.ts             encrypted local queue (enqueue/list/markSynced)
+  sync/
+    syncClient.ts              idempotent PUT upload (stub endpoint)
+    syncScheduler.ts           background flush on connectivity, never blocks auth
+    purge.ts                   confirm-then-delete raw biometric material
+  flow/
+    authenticateOnSite.ts      full orchestrated flow
   screens/
-    EnrolScreen.tsx           Enrol a worker face under an ID
-    VerifyScreen.tsx          Verify a live face against enrolled templates
-  App.tsx                     Navigation root
+    OnSiteScreen.tsx           demo screen: challenge UI + live metrics
+    MetricsPanel.tsx           per-stage + total latency, model-size readout
+    EnrolScreen.tsx            enrol a worker face under an ID
+    VerifyScreen.tsx           basic verification screen (Document 1)
+  camera/
+    CameraScreen.tsx           front-camera preview with frame processor
+    useFrameProcessor.ts       ML Kit face detection on camera frames
+  detection/
+    faceDetector.ts            ML Kit wrapper returning typed FaceSignals
+    types.ts                   DetectedFace, Landmarks, FaceSignals
+  recognition/
+    alignFace.ts               5-point similarity warp to 112×112 aligned crop
+    embeddingModel.ts          ONNX Runtime → 512-d embedding
+    matcher.ts                 cosine similarity + match threshold
+  enrolment/
+    enrolFace.ts               capture → embedding → encrypted store
+  storage/
+    secureKey.ts               platform keystore/keychain key management
+    encryptedStore.ts          encrypt/decrypt templates at rest
+  onsite/
+    OnSiteCore.ts              public API surface (Document 1)
+    coreTypes.ts               shared types and constants
+  App.tsx                      navigation root
 assets/
   models/
-    sface_int8.onnx           SFace recognition model (~36 MB)
+    sface_int8.onnx            SFace recognition model (~36 MB, Document 1)
+    minifasnet_int8.onnx       MiniFASNet passive liveness (~1.7 MB, Document 2)
 tools/
-  convert_model.py            Regenerate/quantise the ONNX model
-  README.md                   Model regeneration instructions
+  convert_model.py             regenerate SFace ONNX
+  convert_minifasnet.py        regenerate MiniFASNet ONNX (Apache-2.0 weights required)
 ```
 
 ## Technology Stack
 
-| Concern | Choice |
-|---|---|
-| Framework | React Native 0.85 (New Architecture) |
-| Camera | react-native-vision-camera with frame processors |
-| Face Detection | ML Kit via vision-camera plugin |
-| Neural Inference | onnxruntime-react-native |
-| Recognition Model | OpenCV SFace (MobileFaceNet) |
-| Secure Storage | react-native-keychain (Android Keystore / iOS Keychain) |
-| Navigation | React Navigation (Native Stack) |
+| Concern | Choice | Licence |
+|---|---|---|
+| Framework | React Native 0.85 (New Architecture) | MIT |
+| Camera | react-native-vision-camera | MIT |
+| Face Detection | ML Kit via vision-camera plugin | Apache-2.0 |
+| Neural Inference | onnxruntime-react-native | MIT |
+| Recognition Model | OpenCV SFace (MobileFaceNet) | Apache-2.0 |
+| Passive Liveness Model | MiniFASNetV1SE (Silent-Face-Anti-Spoofing) | Apache-2.0 |
+| Secure Storage | react-native-keychain | MIT |
+| Navigation | React Navigation (Native Stack) | MIT |
+| Connectivity | @react-native-community/netinfo | MIT |
+
+## Liveness Configuration
+
+All thresholds are configurable via `LivenessConfig`. No values are buried inline.
+
+```typescript
+const config: LivenessConfig = {
+  passiveThreshold: 0.6,        // reject if passive score < this
+  challengeTimeoutMs: 8000,     // active challenge must complete within this
+  challengeStepCount: 2,        // how many random steps to issue
+  headYawThresholdDeg: 20,      // degrees yaw for a valid head turn
+  eyeOpenDropThreshold: 0.3,    // eye-open prob below which = eye closed
+  eyeOpenRecoverThreshold: 0.7, // eye-open prob above which = eye re-opened
+};
+```
+
+## Authentication Flow
+
+```
+1. detectFaces(frame)           → exactly one clear face required
+2. passiveLiveness(80×80 crop) → reject if livenessScore < threshold
+3. activeChallenge              → randomised blink → turn, timed
+4. deriveEmbedding(alignedCrop)
+5. verifyAgainstEnrolled
+6. build + sign verificationRecord → enqueue encrypted
+── later, off the auth path ──
+7. syncScheduler flushes queue on reconnect (idempotent PUT)
+8. on server ack → purgeSyncedRecords (confirm-then-delete)
+```
+
+## Verification Records
+
+Each successful authentication produces a signed, encrypted record:
+
+```typescript
+interface VerificationRecord {
+  id: string;           // stable unique ID for idempotent uploads
+  workerId: string;
+  deviceId: string;
+  timestamp: number;
+  livenessScore: number;
+  similarity: number;
+  matched: boolean;
+  gpsCoords: { lat: number; lon: number } | null;
+  syncStatus: 'pending' | 'synced';
+}
+```
+
+Records are signed with the device key from the keystore. Tamper detection: any field change produces a different signature.
+
+## Models
+
+| Model | Input | Output | Size |
+|---|---|---|---|
+| SFace (recognition) | `[1,3,112,112]` NCHW float32 | `[1,512]` L2-norm embedding | ~36 MB |
+| MiniFASNetV1SE (liveness) | `[1,3,80,80]` NCHW float32 | `[1,3]` softmax logits | ~1.7 MB |
+
+Combined on-device model footprint: **~37.7 MB** (well under the 20 MB target for the liveness model alone; the recognition model is the foundation's).
 
 ## Setup
 
@@ -140,26 +182,34 @@ npx react-native run-ios
 npx react-native run-android
 ```
 
+## Regenerating the Passive Liveness Model
+
+```bash
+# Clone the Apache-2.0 weights source
+git clone https://github.com/minivision-ai/Silent-Face-Anti-Spoofing tools/Silent-Face-Anti-Spoofing
+
+pip install torch torchvision onnx onnxruntime
+python3 tools/convert_minifasnet.py
+```
+
+See `tools/convert_minifasnet.py` for checkpoint placement instructions.
+
 ## Offline Operation
 
-The entire enrolment and verification pipeline operates offline:
-- Face detection uses on-device ML Kit (no network)
-- Recognition model runs locally via ONNX Runtime
-- Templates are stored encrypted on the device filesystem
-- Encryption key lives in platform keystore/keychain
+The entire pipeline — enrolment, verification, liveness, record signing, queueing — operates with zero network. Network is used only by `syncScheduler`, which:
+- Never blocks authentication
+- Uploads idempotently (PUT keyed by record ID)
+- Marks records synced only after server acknowledgement
+- Purges biometric material only after sync confirmation (confirm-then-delete)
 
-No network calls are made during enrolment or verification.
+## Licence Ledger
 
-## Model
+| Component | Licence |
+|---|---|
+| OnSite app code | Apache-2.0 |
+| OpenCV SFace model | Apache-2.0 |
+| MiniFASNetV1SE model | Apache-2.0 (Silent-Face-Anti-Spoofing project) |
+| All runtime dependencies | MIT or Apache-2.0 (see table above) |
 
-The recognition model is OpenCV SFace (MobileFaceNet trained with SFace loss).
+See [LICENSE](LICENSE).
 
-- Input: `[1, 3, 112, 112]` (NCHW, float32, 0-1 normalised)
-- Output: `[1, 512]` (L2-normalised embedding)
-- Comparison: Cosine similarity with configurable threshold (default: 0.4)
-
-See `tools/README.md` for regeneration instructions.
-
-## License
-
-Apache-2.0. See [LICENSE](LICENSE).

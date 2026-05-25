@@ -3,8 +3,10 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import EnrolScreen from './screens/EnrolScreen';
 import VerifyScreen from './screens/VerifyScreen';
+import OnSiteScreen from './screens/OnSiteScreen';
 
 type RootStackParamList = {
+  OnSite: undefined;
   Enrol: undefined;
   Verify: undefined;
 };
@@ -15,7 +17,7 @@ export default function App() {
   return (
     <NavigationContainer>
       <Stack.Navigator
-        initialRouteName="Enrol"
+        initialRouteName="OnSite"
         screenOptions={{
           headerStyle: {
             backgroundColor: '#111111',
@@ -28,6 +30,11 @@ export default function App() {
             backgroundColor: '#0A0A0A',
           },
         }}>
+        <Stack.Screen
+          name="OnSite"
+          component={OnSiteScreen}
+          options={{ title: 'OnSite — Verify' }}
+        />
         <Stack.Screen
           name="Enrol"
           component={EnrolScreen}

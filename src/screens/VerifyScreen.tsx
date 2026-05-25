@@ -169,7 +169,7 @@ export default function VerifyScreen({ navigation }: VerifyScreenProps) {
           style={[
             styles.verifyButton,
             (currentFaces.length === 0 || isVerifying) &&
-              styles.verifyButtonDisabled,
+            styles.verifyButtonDisabled,
           ]}
           onPress={handleVerify}
           disabled={currentFaces.length === 0 || isVerifying}>

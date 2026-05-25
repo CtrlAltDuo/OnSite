@@ -164,7 +164,7 @@ export default function EnrolScreen({ navigation }: EnrolScreenProps) {
           style={[
             styles.captureButton,
             (!workerId.trim() || currentFaces.length === 0 || isEnrolling) &&
-              styles.captureButtonDisabled,
+            styles.captureButtonDisabled,
           ]}
           onPress={handleCapture}
           disabled={

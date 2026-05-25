@@ -169,18 +169,44 @@ Records are signed with the device key from the keystore. Tamper detection: any 
 
 Combined on-device model footprint: **~37.7 MB** (well under the 20 MB target for the liveness model alone; the recognition model is the foundation's).
 
-## Setup
+## Setup & Customization Guide
+
+### 1. Build and Run the App
+Because OnSite relies on native hardware camera APIs, **it cannot be run on a simulator**. You must deploy to a physical device.
 
 ```bash
+# 1. Install Node dependencies
 npm install
 
-# iOS
-cd ios && bundle install && bundle exec pod install && cd ..
-npx react-native run-ios
+# 2. iOS Setup (macOS only)
+cd ios
+bundle install
+bundle exec pod install
+cd ..
+npx react-native run-ios --device
 
-# Android
+# 3. Android Setup
 npx react-native run-android
 ```
+
+### 2. Where to Edit What (Hackathon Customizations)
+To adapt OnSite for your specific hackathon use case, you may want to modify the following files:
+
+- **AWS Sync Endpoint:** 
+  - **File:** `src/sync/syncClient.ts`
+  - **Action:** Find `const STUB_ENDPOINT_URL` and replace the dummy URL with your real AWS API Gateway or backend endpoint.
+
+- **Liveness Thresholds & Active Challenges:**
+  - **File:** `src/liveness/challengeTypes.ts` / `livenessGate.ts`
+  - **Action:** Adjust parameters like `passiveThreshold` (default 0.6), `challengeTimeoutMs` (default 8000), or `challengeStepCount` to make anti-spoofing stricter or more relaxed.
+
+- **Similarity Match Threshold:**
+  - **File:** `src/recognition/matcher.ts`
+  - **Action:** Adjust the cosine similarity threshold to make the facial recognition stricter.
+
+- **UI & Branding Colors:**
+  - **Files:** `src/screens/OnSiteScreen.tsx`, `EnrolScreen.tsx`, `VerifyScreen.tsx`
+  - **Action:** Modify the React Native `StyleSheet` objects at the bottom of these files to match your project's brand identity.
 
 ## Regenerating the Passive Liveness Model
 

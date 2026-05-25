@@ -202,6 +202,8 @@ The entire pipeline — enrolment, verification, liveness, record signing, queue
 - Marks records synced only after server acknowledgement
 - Purges biometric material only after sync confirmation (confirm-then-delete)
 
+> **Note on AWS Sync:** The cloud sync client currently points to a dummy placeholder URL (`https://onsite-stub.example.com`) to demonstrate the "scope for sync" requirement. To sync with your real AWS backend, simply replace the `STUB_ENDPOINT_URL` in `src/sync/syncClient.ts` with your actual API Gateway or S3 endpoint and provide your API keys.
+
 ## Licence Ledger
 
 | Component | Licence |

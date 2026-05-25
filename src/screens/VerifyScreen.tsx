@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+declare const global: any;
 import {
   StyleSheet,
   View,
@@ -37,17 +38,17 @@ export default function VerifyScreen({ navigation }: VerifyScreenProps) {
       setIsVerifying(true);
 
       try {
-        const photoPath = photo.path;
+        const photoPath = (photo as any).path;
         const imageData = await RNFS.readFile(photoPath, 'base64');
-        const binaryString = atob(imageData);
+        const binaryString = (global as any).atob(imageData);
         const pixels: number[] = [];
         for (let i = 0; i < binaryString.length; i++) {
           pixels.push(binaryString.charCodeAt(i));
         }
 
         const face = currentFaces[0];
-        const estimatedWidth = Math.round(face.signals?.boundingBox?.width || 640);
-        const estimatedHeight = Math.round(face.signals?.boundingBox?.height || 480);
+        const estimatedWidth = Math.round(face.boundingBox?.width || 640);
+        const estimatedHeight = Math.round(face.boundingBox?.height || 480);
 
         const rgbPixels: number[] = [];
         const pixelCount = estimatedWidth * estimatedHeight;

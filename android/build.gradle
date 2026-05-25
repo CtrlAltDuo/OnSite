@@ -19,3 +19,13 @@ buildscript {
 }
 
 apply plugin: "com.facebook.react.rootproject"
+
+allprojects {
+    configurations.all {
+        resolutionStrategy {
+            force 'com.microsoft.onnxruntime:onnxruntime-android:1.20.0'
+            force 'com.microsoft.onnxruntime:onnxruntime-android-qnn:1.20.0'
+            force 'com.microsoft.onnxruntime:onnxruntime-extensions-android:1.20.0'
+        }
+    }
+}

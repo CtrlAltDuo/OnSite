@@ -13,11 +13,15 @@ export function useOnSiteFrameProcessor(onFacesDetected: (faces: FaceSignals[]) 
           landmarks: {
             leftEye: { x: 280, y: 400 },
             rightEye: { x: 520, y: 400 },
-            noseBase: { x: 400, y: 500 },
+            noseTip: { x: 400, y: 500 },
+            leftMouth: { x: 350, y: 600 },
+            rightMouth: { x: 450, y: 600 },
           },
-          pitch: 0,
-          yaw: 0,
-          roll: 0,
+          headPitch: 0,
+          headYaw: 0,
+          headRoll: 0,
+          leftEyeOpenProbability: 1,
+          rightEyeOpenProbability: 1,
         },
       ]);
     }, 500);
